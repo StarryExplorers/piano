@@ -180,7 +180,18 @@
 (function(){
   // --- Audio setup ---
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination);
+    const master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination);
+    // Many browsers block audio until a user gesture. We'll resume the AudioContext
+    // on the first user interaction so the keys actually make sound.
+    let audioStarted = false;
+    function ensureAudio(){
+      if(audioStarted) return Promise.resolve();
+      if (!ctx) return Promise.resolve();
+      const p = (ctx.state === 'suspended' && typeof ctx.resume === 'function') ? ctx.resume() : Promise.resolve();
+      return p.then(()=>{ audioStarted = true; try{ document.getElementById('statusText').textContent = 'Audio ready'; }catch(e){} });
+    }
+    // Try to resume on the first user gesture (mouse/touch/keyboard/click). Use once:true so it only fires once.
+    ['mousedown','touchstart','keydown','click'].forEach(ev=> window.addEventListener(ev, ()=>{ ensureAudio(); }, {once:true, passive:true}));
 
   function noteToFreq(noteNumber){
     // A4 = midi 69 = 440Hz
@@ -295,6 +306,8 @@
   const gainNodes = new Map();
 
   function startNote(midi, el){
+    // ensure audio is started (required by many browsers) before creating oscillators
+    try{ ensureAudio(); }catch(e){}
     if(!ctx) return;
     const vel = +document.getElementById('velRange').value;
     if(active.has(midi) && !document.getElementById('sustain').checked) return;
