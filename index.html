@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pink Piano — Practice App</title>
+  <style>
+    :root{
+      --bg1: #ffe6f2;
+      --bg2: #ffd0ea;
+      --accent: #ff69b4;
+      --dark: #4a1133;
+      --white-key: #fff;
+      --black-key: #2b0b20;
+      --glass: rgba(255,255,255,0.5);
+      --radius: 18px;
+      font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{
+      background: linear-gradient(135deg,var(--bg1),var(--bg2));
+      color:var(--dark);
+      display:flex;align-items:center;justify-content:center;padding:28px;
+      -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+    }
+    .app{
+      width:100%;max-width:1100px;border-radius:20px;overflow:hidden;
+      box-shadow:0 10px 30px rgba(70,0,40,0.15);
+      background:linear-gradient(180deg,rgba(255,255,255,0.8),rgba(255,240,250,0.6));
+      display:grid;grid-template-columns:1fr 420px;gap:0;backdrop-filter: blur(6px);
+    }
+    header{
+      grid-column:1/-1;padding:22px 28px;border-bottom:1px solid rgba(255,0,120,0.06);
+      display:flex;align-items:center;justify-content:space-between;gap:12px
+    }
+    .title{
+      display:flex;align-items:center;gap:14px
+    }
+    .logo{width:58px;height:58px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#ff9ac6);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:20px;box-shadow:0 6px 18px rgba(255,105,180,0.18)}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:0;color:#6f1a46;font-size:13px;opacity:0.9}
+
+    /* MAIN LAYOUT */
+    .controls{padding:20px}
+    .keyboard-wrap{padding:20px;background:linear-gradient(180deg,rgba(255,250,255,0.9),rgba(255,240,245,0.9));border-radius:12px;margin:18px}
+    .keyboard{position:relative;height:240px;display:flex;align-items:flex-end;user-select:none}
+
+    /* keys */
+    .key{position:relative;border:1px solid rgba(0,0,0,0.06);height:100%;flex:1;border-radius:6px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:10px;cursor:pointer;background:var(--white-key);box-shadow:0 6px 12px rgba(0,0,0,0.06);transition:transform .09s ease, box-shadow .09s}
+    .key:active{transform:translateY(2px)}
+    .key.playing{transform:translateY(-6px);box-shadow:0 18px 30px rgba(255,105,180,0.12)}
+    .key .label{font-size:12px;color:#5a2a44}
+
+    .black{position:absolute;left:0;top:0;height:62%;width:62px;background:linear-gradient(180deg,var(--black-key),#14040a);z-index:2;border-radius:8px;box-shadow:0 8px 20px rgba(0,0,0,0.5);transform:translateX(50%);color:white;display:flex;align-items:flex-end;justify-content:center;padding-bottom:8px;border:1px solid rgba(255,255,255,0.02)}
+    .black.small{width:46px}
+
+    /* layout for sets */
+    .octave{position:relative;display:flex;flex:1;height:100%}
+    .white-keys{display:flex;flex:1;height:100%}
+
+    /* right panel */
+    .side{padding:22px;background:linear-gradient(180deg,rgba(255,230,245,0.6),rgba(255,215,240,0.55));}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,0.85),rgba(255,250,255,0.8));padding:14px;border-radius:12px;margin-bottom:14px;box-shadow:0 6px 18px rgba(100,0,60,0.06)}
+
+    .row{display:flex;gap:10px;align-items:center}
+    label{font-size:13px;color:#5a2140}
+    select,input[type=range]{width:100%}
+
+    .song-list{display:flex;flex-direction:column;gap:8px}
+    .song{padding:10px;border-radius:10px;background:linear-gradient(90deg,rgba(255,255,255,0.6),rgba(255,245,250,0.6));cursor:pointer;border:1px solid rgba(255,105,180,0.08)}
+    .song.active{outline:3px solid rgba(255,105,180,0.12)}
+
+    .big-btn{display:inline-flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:linear-gradient(90deg,var(--accent),#ff9ac6);color:white;font-weight:600;border:none;cursor:pointer}
+
+    footer{padding:14px;text-align:center;color:#6f2a4a;font-size:13px}
+
+    /* responsive */
+    @media (max-width:920px){
+      .app{grid-template-columns:1fr;}
+      .side{order:2}
+      .keyboard-wrap{order:1}
+      .keyboard{height:200px}
+    }
+
+    /* small helpers */
+    .metronome-dot{width:12px;height:12px;border-radius:50%;background:var(--glass);display:inline-block}
+    .led{width:10px;height:10px;border-radius:50%;background:rgba(200,0,100,0.12);box-shadow:inset 0 -2px 6px rgba(0,0,0,0.1)}
+    .led.on{background:var(--accent);box-shadow:0 4px 12px rgba(255,105,180,0.25)}
+
+  </style>
+</head>
+<body>
+  <div class="app" role="application" aria-label="Pink Piano Practice App">
+    <header>
+      <div class="title">
+        <div class="logo">♪</div>
+        <div>
+          <h1>Pink Piano</h1>
+          <p class="lead">Practice songs, learn notes, and play — all inside the browser.</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <div style="text-align:right;font-size:12px;color:#5a2a44">Octave <strong id="octaveDisplay">4</strong></div>
+        <button class="big-btn" id="recordBtn">● Record</button>
+      </div>
+    </header>
+
+    <main class="controls">
+      <div class="keyboard-wrap">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="big-btn" id="practiceToggle">Practice Mode</button>
+            <button class="big-btn" id="playAuto">▶ Autoplay</button>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <label style="font-size:13px">Sustain <input type="checkbox" id="sustain"></label>
+            <label style="font-size:13px">Velocity <input id="velRange" type="range" min="0" max="1" step="0.01" value="0.9"></label>
+          </div>
+        </div>
+
+        <div class="keyboard" id="keyboard" aria-hidden="false"></div>
+
+        <div style="margin-top:12px;display:flex;gap:10px;align-items:center;justify-content:space-between">
+          <div style="font-size:13px;color:#5a2140">Use your mouse/touch or keyboard letters to play. White keys: A S D F G H J K ; L '</div>
+          <div style="font-size:13px;color:#5a2140">Tip: Toggle Practice Mode to show which key to press next.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><strong>Now Playing:</strong> <span id="nowPlaying">—</span></div>
+          <div class="row"><div class="led" id="meterLed"></div><div style="font-size:12px;color:#6b2a49;margin-left:6px" id="statusText">Ready</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <strong>Practice Progress</strong>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+          <div style="flex:1;background:linear-gradient(90deg,#fff,#fff);height:12px;border-radius:8px;overflow:hidden;border:1px solid rgba(255,105,180,0.06)"><div id="progressBar" style="width:0%;height:100%;background:linear-gradient(90deg,var(--accent),#ff9ac6)"></div></div>
+          <div id="progressPct">0%</div>
+        </div>
+      </div>
+
+    </main>
+
+    <aside class="side">
+      <div class="card">
+        <strong>Songs to Practice</strong>
+        <div class="song-list" id="songs">
+          <!-- songs populated by JS -->
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <label>Octave Offset
+            <input id="octave" type="range" min="1" max="6" value="4">
+          </label>
+          <label>Tempo (BPM)
+            <input id="tempo" type="range" min="40" max="180" value="90">
+          </label>
+          <div class="row" style="justify-content:space-between">
+            <button class="big-btn" id="metronome">Metronome <span id="metroLed" style="margin-left:8px" class="metronome-dot"></span></button>
+            <button class="big-btn" id="clearRec">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="text-align:center">
+        <small style="color:#6f2a4a">Created for practice. Sounds are synthesized (WebAudio). Have fun! 🎹</small>
+      </div>
+
+    </aside>
+
+    <footer>Pink Piano • Play & Practice • Designed with lots of pink 💖</footer>
+  </div>
+
+<script>
+(function(){
+  // --- Audio setup ---
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination);
+
+  function noteToFreq(noteNumber){
+    // A4 = midi 69 = 440Hz
+    return 440 * Math.pow(2, (noteNumber - 69)/12);
+  }
+
+  // map keys: We'll build an array of keys (white+black) across 2 octaves (C3..B5 maybe adjustable)
+  const KEY_ORDER = [
+    {name:'C'},'C#',{name:'D'},'D#',{name:'E'},{name:'F'},'F#',{name:'G'},'G#',{name:'A'},'A#',{name:'B'}
+  ];
+
+  // Build visual keyboard covering 3 octaves centered on octave 4
+  let baseOctave = 4;
+  const totalOctaves = 3; // visual
+  const startOct = baseOctave - 1; // start at octave 3
+  const keys = [];
+  for(let o=0;o<totalOctaves;o++){
+    const oct = startOct + o;
+    for(let i=0;i<KEY_ORDER.length;i++){
+      const k = KEY_ORDER[i];
+      const name = typeof k === 'string' ? k : k.name;
+      const isSharp = name.includes('#') || name.includes('♯');
+      const noteName = name + oct;
+      // midi number: C4 = 60, so C(0) of octave n is 12*(n+1)
+      const midi = 12 * (oct + 1) + (i);
+      keys.push({noteName,midi,isSharp,label:name.replace('#','♯')});
+    }
+  }
+
+  // create keyboard DOM
+  const keyboard = document.getElementById('keyboard');
+  const whiteContainer = document.createElement('div');
+  whiteContainer.className='white-keys';
+  whiteContainer.style.display='flex';
+  whiteContainer.style.width='100%';
+  const keyElems = [];
+
+  // construct by grouping white keys into octaves, but for simplicity append whites then absolutely position blacks
+  // Create a wrapper with flex for white keys
+  const whiteKeys = keys.filter(k=>!k.isSharp);
+  const blackKeys = keys.filter(k=>k.isSharp);
+
+  whiteKeys.forEach((k, i)=>{
+    const el = document.createElement('div');
+    el.className='key white';
+    el.dataset.midi = k.midi;
+    el.dataset.note = k.noteName;
+    el.innerHTML = `<div class="label">${k.label.replace('♯','#')}<br/><small style='opacity:.6'>${k.noteName}</small></div>`;
+    keyboard.appendChild(el);
+
+    el.addEventListener('mousedown',()=>startNote(k.midi, el));
+    el.addEventListener('mouseup',()=>stopNote(k.midi, el));
+    el.addEventListener('mouseleave',()=>stopNote(k.midi, el));
+    el.addEventListener('touchstart',(e)=>{e.preventDefault();startNote(k.midi, el)}, {passive:false});
+    el.addEventListener('touchend',(e)=>{e.preventDefault();stopNote(k.midi, el)})
+
+    keyElems.push({midi:k.midi,el,isSharp:false});
+  });
+
+  // position black keys
+  blackKeys.forEach((k)=>{
+    const el = document.createElement('div');
+    el.className='key black';
+    el.dataset.midi = k.midi;
+    el.dataset.note = k.noteName;
+    el.innerHTML = `<div class="label">${k.label}</div>`;
+    // find position: insert into keyboard and position over correct white key
+    keyboard.appendChild(el);
+
+    el.addEventListener('mousedown',()=>startNote(k.midi, el));
+    el.addEventListener('mouseup',()=>stopNote(k.midi, el));
+    el.addEventListener('mouseleave',()=>stopNote(k.midi, el));
+    el.addEventListener('touchstart',(e)=>{e.preventDefault();startNote(k.midi, el)}, {passive:false});
+    el.addEventListener('touchend',(e)=>{e.preventDefault();stopNote(k.midi, el)})
+
+    keyElems.push({midi:k.midi,el,isSharp:true});
+  });
+
+  // compute key positions to align black keys
+  function layoutKeys(){
+    // collect current white key elements in order
+    const whites = Array.from(document.querySelectorAll('.key.white'));
+    whites.forEach((w,i)=>{ w.style.flex='1'; w.style.minWidth='48px' });
+    // for each black key, position it centered between two whites
+    const blacks = Array.from(document.querySelectorAll('.key.black'));
+    // map midi to white index
+    const whiteMidis = whites.map(w=>+w.dataset.midi);
+    blacks.forEach(b=>{
+      const midi = +b.dataset.midi;
+      // find nearest left white index (the white with midi < b.midi)
+      let idx = whiteMidis.findIndex(m=>m>midi) - 1;
+      if(idx<0) idx = whiteMidis.length-1;
+      const left = whites[idx];
+      const right = whites[idx+1] || whites[idx];
+      const leftRect = left.getBoundingClientRect();
+      const rightRect = right.getBoundingClientRect();
+      const kRect = keyboard.getBoundingClientRect();
+      // compute percent position relative to keyboard
+      const leftCenter = leftRect.left - kRect.left + leftRect.width/2;
+      const rightCenter = rightRect.left - kRect.left + rightRect.width/2;
+      const center = (leftCenter + rightCenter)/2;
+      b.style.position='absolute';
+      b.style.left = (center - b.offsetWidth/2) + 'px';
+    })
+  }
+
+  window.addEventListener('resize',()=>{setTimeout(layoutKeys,100)});
+  setTimeout(layoutKeys,200);
+
+  // --- Sound engine ---
+  const active = new Map();
+  const gainNodes = new Map();
+
+  function startNote(midi, el){
+    if(!ctx) return;
+    const vel = +document.getElementById('velRange').value;
+    if(active.has(midi) && !document.getElementById('sustain').checked) return;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    const f = noteToFreq(midi);
+    osc.type = 'sine';
+    osc.frequency.value = f;
+
+    // subtle detune + richer sound via two oscillators
+    const osc2 = ctx.createOscillator();
+    const g2 = ctx.createGain();
+    osc2.type='sine'; osc2.frequency.value = f*1.003; // tiny detune
+    g.gain.value = 0; g2.gain.value = 0;
+
+    const out = ctx.createGain(); out.gain.value = 0.18 * vel;
+    osc.connect(g); g.connect(out);
+    osc2.connect(g2); g2.connect(out);
+    out.connect(master);
+
+    // attack
+    const now = ctx.currentTime;
+    g.gain.cancelScheduledValues(now); g2.gain.cancelScheduledValues(now);
+    g.gain.setValueAtTime(0, now); g2.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(1, now + 0.02);
+    g2.gain.linearRampToValueAtTime(0.45, now + 0.02);
+
+    osc.start(now); osc2.start(now);
+    active.set(midi, [osc,osc2,out]);
+    gainNodes.set(midi, out);
+
+    if(el){ el.classList.add('playing'); }
+    document.getElementById('meterLed').classList.add('on');
+  }
+
+  function stopNote(midi, el){
+    if(!active.has(midi)) return;
+    const sustain = document.getElementById('sustain').checked;
+    if(sustain) return; // do not stop if sustain on
+    const [osc,osc2,out] = active.get(midi);
+    const now = ctx.currentTime;
+    out.gain.cancelScheduledValues(now);
+    out.gain.setValueAtTime(out.gain.value, now);
+    out.gain.linearRampToValueAtTime(0.0001, now + 0.5);
+    setTimeout(()=>{
+      try{osc.stop(); osc2.stop(); out.disconnect();}catch(e){}
+    }, 600);
+    active.delete(midi);
+    gainNodes.delete(midi);
+    if(el){ el.classList.remove('playing'); }
+    if(active.size===0) document.getElementById('meterLed').classList.remove('on');
+  }
+
+  // Stop all notes (used when clearing or octave change)
+  function stopAll(){ for(const [m] of Array.from(active)){ stopNote(m); } }
+
+  // --- Keyboard mapping ---
+  const keyMap = {
+    // map computer keyboard keys to white key midis roughly starting at first white key
+    'a': whiteKeys[0].midi, 's': whiteKeys[1].midi, 'd': whiteKeys[2].midi, 'f': whiteKeys[3].midi,
+    'g': whiteKeys[4].midi, 'h': whiteKeys[5].midi, 'j': whiteKeys[6].midi, 'k': whiteKeys[7].midi,
+    'l': whiteKeys[8].midi, ';': whiteKeys[9].midi, "'": whiteKeys[10]?.midi || whiteKeys[9].midi
+  };
+
+  const blackMap = {
+    'w': blackKeys[0].midi, 'e': blackKeys[1].midi, 't': blackKeys[2].midi,'y': blackKeys[3].midi, 'u': blackKeys[4].midi
+  }
+
+  document.addEventListener('keydown', (e)=>{
+    if(e.repeat) return;
+    const k = e.key.toLowerCase();
+    if(keyMap[k]){
+      const midi = keyMap[k]; const el = document.querySelector(`.key[data-midi='${midi}']`);
+      startNote(midi, el);
+    } else if(blackMap[k]){
+      const midi = blackMap[k]; const el = document.querySelector(`.key[data-midi='${midi}']`);
+      startNote(midi, el);
+    }
+  });
+  document.addEventListener('keyup', (e)=>{
+    const k = e.key.toLowerCase();
+    if(keyMap[k]){ const midi = keyMap[k]; const el = document.querySelector(`.key[data-midi='${midi}']`); stopNote(midi, el);} 
+    if(blackMap[k]){ const midi = blackMap[k]; const el = document.querySelector(`.key[data-midi='${midi}']`); stopNote(midi, el);} 
+  });
+
+  // --- UI controls ---
+  const octaveSlider = document.getElementById('octave');
+  const octaveDisplay = document.getElementById('octaveDisplay');
+  octaveSlider.addEventListener('input', ()=>{
+    baseOctave = +octaveSlider.value; octaveDisplay.textContent = baseOctave; // for now, doesn't rebuild keyboard; could implement shifting octave later
+  });
+
+  document.getElementById('velRange').addEventListener('input', ()=>{});
+
+  document.getElementById('practiceToggle').addEventListener('click', ()=>{
+    practiceMode = !practiceMode; document.getElementById('practiceToggle').textContent = practiceMode? 'Practice Mode ✓' : 'Practice Mode'; if(practiceMode) startPractice(); else stopPractice();
+  });
+
+  // --- Songs ---
+  const SONGS = {
+    'Twinkle Twinkle': ['C4','C4','G4','G4','A4','A4','G4','pause','F4','F4','E4','E4','D4','D4','C4'],
+    'Happy Birthday': ['C4','C4','D4','C4','F4','E4','pause','C4','C4','D4','C4','G4','F4'],
+    'Ode to Joy': ['E4','E4','F4','G4','G4','F4','E4','D4','C4','C4','D4','E4','E4','D4','D4']
+  };
+
+  const songsEl = document.getElementById('songs');
+  Object.keys(SONGS).forEach((name, idx)=>{
+    const b = document.createElement('div'); b.className='song'; b.textContent = name; b.dataset.name=name;
+    b.addEventListener('click', ()=>{ selectSong(name); });
+    songsEl.appendChild(b);
+    if(idx===0) selectSong(name);
+  });
+
+  let currentSong = null; let playTimer=null; let practiceMode=false; let practiceIndex=0; let recorded=[];
+  function selectSong(name){ currentSong = name; document.querySelectorAll('.song').forEach(s=>s.classList.toggle('active', s.dataset.name===name)); document.getElementById('nowPlaying').textContent = name; resetPractice(); }
+
+  function playSequence(seq, bpm=90){
+    stopSequence();
+    let i=0; const beatSec = 60/bpm * 0.5; // each item gets half a beat by default
+    function step(){
+      if(i>=seq.length){ stopSequence(); return; }
+      const n = seq[i];
+      if(n==='pause'){ /* silence */ }
+      else{
+        const midi = noteNameToMidi(n);
+        const el = document.querySelector(`.key[data-midi='${midi}']`);
+        startNote(midi, el);
+        setTimeout(()=>{ stopNote(midi, el); }, beatSec*700);
+      }
+      i++; playTimer = setTimeout(step, beatSec*1000);
+    }
+    step();
+  }
+
+  function stopSequence(){ if(playTimer) { clearTimeout(playTimer); playTimer=null; } }
+
+  document.getElementById('playAuto').addEventListener('click', ()=>{
+    if(!currentSong) return; const bpm = +document.getElementById('tempo').value; playSequence(SONGS[currentSong], bpm);
+  });
+
+  // practice mode highlights next note and tracks progress
+  function startPractice(){ practiceIndex=0; updatePracticeUI(); }
+  function stopPractice(){ practiceIndex=0; updateProgress(0); clearHighlight(); }
+  function resetPractice(){ practiceIndex=0; updateProgress(0); clearHighlight(); }
+  function updatePracticeUI(){ const seq = SONGS[currentSong]; if(!seq) return; clearHighlight(); const next = seq[practiceIndex]; if(next && next!=='pause'){ const midi = noteNameToMidi(next); const el = document.querySelector(`.key[data-midi='${midi}']`); if(el) el.classList.add('playing'); } updateProgress(Math.round((practiceIndex/seq.length)*100)); }
+
+  function clearHighlight(){ document.querySelectorAll('.key.playing').forEach(k=>k.classList.remove('playing')) }
+
+  // when user plays while in practice: advance if matches
+  function onUserPlay(midi){ if(!practiceMode) return; const seq = SONGS[currentSong]; if(!seq) return; const expected = seq[practiceIndex]; if(!expected){ return; }
+    if(expected==='pause'){
+      practiceIndex++; updatePracticeUI(); return;
+    }
+    const expMidi = noteNameToMidi(expected);
+    if(midi === expMidi){ practiceIndex++; updatePracticeUI(); if(practiceIndex>=seq.length){ // complete
+        showMessage('Practice complete! 🎉'); practiceMode=false; document.getElementById('practiceToggle').textContent='Practice Mode';
+      }
+    } else {
+      // small feedback: flash border
+      const el = document.querySelector(`.key[data-midi='${expMidi}']`);
+      if(el){ el.style.outline='3px solid rgba(255,105,180,0.12)'; setTimeout(()=>el.style.outline='',400); }
+    }
+  }
+
+  // hook into startNote to notify practice
+  const _startNote = startNote;
+  startNote = function(midi, el){ _startNote(midi, el); onUserPlay(midi); }
+
+  // utility: convert note like C4 to midi
+  function noteNameToMidi(note){
+    if(!note) return null;
+    if(note.length===0) return null;
+    const match = note.match(/^([A-G])(#|b|♯)?(\d)$/);
+    if(!match) return null;
+    const name = match[1]; const acc = match[2]||''; const oct = +match[3];
+    const semis = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+    let val = semis[name]; if(acc==='#' || acc==='♯') val +=1; if(acc==='b') val -=1;
+    const midi = 12*(oct+1) + val;
+    return midi;
+  }
+
+  // progress bar
+  function updateProgress(pct){ document.getElementById('progressBar').style.width = pct+'%'; document.getElementById('progressPct').textContent = pct+'%'; }
+
+  // quick message
+  function showMessage(txt){ document.getElementById('statusText').textContent = txt; setTimeout(()=>document.getElementById('statusText').textContent='Ready',1400); }
+
+  // metronome
+  let metroId=null; let metroOn=false; document.getElementById('metronome').addEventListener('click', ()=>{
+    metroOn = !metroOn; if(metroOn) startMetronome(); else stopMetronome(); document.getElementById('metronome').classList.toggle('on', metroOn);
+  });
+  function startMetronome(){ const bpm = +document.getElementById('tempo').value; const interval = 60000/bpm; let tick = ()=>{ clickSound(); flashMetro(); metroId = setTimeout(tick, interval); }; tick(); }
+  function stopMetronome(){ clearTimeout(metroId); metroId=null; document.getElementById('metroLed').style.opacity=0.4; }
+  function flashMetro(){ const d = document.getElementById('metroLed'); d.style.opacity=1; setTimeout(()=>d.style.opacity=0.4,120); }
+  function clickSound(){ const o = ctx.createOscillator(); const g = ctx.createGain(); o.frequency.value = 1000; g.gain.value = 0.001; o.connect(g); g.connect(master); o.start(); g.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.08); setTimeout(()=>{try{o.stop()}catch(e){}},90); }
+
+  // record button (simple capture of midi numbers with timestamps)
+  let isRecording=false; document.getElementById('recordBtn').addEventListener('click', ()=>{
+    isRecording = !isRecording; document.getElementById('recordBtn').textContent = isRecording? '■ Recording' : '● Record'; if(isRecording){ recorded=[]; showMessage('Recording...'); } else { showMessage('Saved recording ('+recorded.length+' notes)'); }
+  });
+
+  function recordNote(midi){ if(!isRecording) return; recorded.push({midi, t:Date.now()}); }
+
+  // wrap startNote to record
+  const __startNote = startNote;
+  startNote = function(midi, el){ __startNote(midi, el); recordNote(midi); }
+
+  document.getElementById('clearRec').addEventListener('click', ()=>{ recorded=[]; showMessage('Cleared'); });
+
+  // wire stop all on unmount
+  window.addEventListener('blur', stopAll);
+
+  // small init
+  document.getElementById('tempo').addEventListener('input', ()=>{});
+  // initial visual tweak
+  setTimeout(()=>{ document.querySelectorAll('.song')[0].classList.add('active'); },300);
+
+})();
+</script>
+</body>
+</html>
